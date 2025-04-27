@@ -1,43 +1,39 @@
-const mega = require("megajs");
+const mega = require('megajs');
+
+// MEGA account login details (optional, if you want upload to personal account)
 const auth = {
-  email: "ashinsad459@gmail.com",
-  password: "MniRvj3eN-RaNkK",
-  userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246",
+    email: process.env.MEGA_EMAIL || '',
+    password: process.env.MEGA_PASSWORD || '',
 };
 
-const upload = (data, name) => {
-  return new Promise((resolve, reject) => {
-    const storage = new mega.Storage(auth);
+const uploadToMega = (stream, filename) => {
+    return new Promise((resolve, reject) => {
+        const storage = new mega.Storage(auth);
 
-    // Wait for storage to be ready
-    storage.on("ready", () => {
-      console.log("Storage is ready. Proceeding with upload.");
+        storage.on('ready', () => {
+            const upload = storage.upload({ name: filename });
+            stream.pipe(upload);
 
-      const uploadStream = storage.upload({ name, allowUploadBuffering: true });
+            upload.on('complete', (file) => {
+                file.link((err, url) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        storage.close();
+                        resolve(url);
+                    }
+                });
+            });
 
-      uploadStream.on("complete", (file) => {
-        file.link((err, url) => {
-          if (err) {
-            reject(err);
-          } else {
-            storage.close();
-            resolve(url);
-          }
+            upload.on('error', (err) => {
+                reject(err);
+            });
         });
-      });
 
-      uploadStream.on("error", (err) => {
-        reject(err);
-      });
-
-      data.pipe(uploadStream);
+        storage.on('error', (err) => {
+            reject(err);
+        });
     });
-
-    storage.on("error", (err) => {
-      reject(err);
-    });
-  });
 };
 
-module.exports = { upload };
+module.exports = { uploadToMega };
